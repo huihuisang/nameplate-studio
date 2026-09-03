@@ -116,6 +116,29 @@
                   </div>
                 </details>
 
+                <details id="outlineSection" class="shadow-section">
+                  <summary>
+                    <label class="check-field">
+                      <input id="layerOutlineEnabled" type="checkbox" />
+                      <span data-i18n="outline">描边</span>
+                    </label>
+                    <span class="fold-chevron" aria-hidden="true">▸</span>
+                  </summary>
+                  <div class="shadow-grid">
+                    <label class="field color-field">
+                      <span data-i18n="outlineColor">描边颜色</span>
+                      <input id="layerOutlineColor" type="color" value="#ffffff" />
+                    </label>
+                    <label class="field">
+                      <span data-i18n="outlineWidth">粗细</span>
+                      <div class="range-control compact">
+                        <input id="layerOutlineWidth" type="range" min="0" max="25" step="0.5" value="7.5" />
+                        <output id="layerOutlineWidthValue" for="layerOutlineWidth">7.5%</output>
+                      </div>
+                    </label>
+                  </div>
+                </details>
+
                 <div class="image-controls image-only" hidden>
                   <img id="layerImageThumb" class="image-thumb" alt="" />
                   <div class="image-controls-side">

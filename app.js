@@ -37,6 +37,9 @@ const translations = {
     size: "Size",
     color: "Color",
     shadow: "Shadow",
+    outline: "Outline",
+    outlineColor: "Outline color",
+    outlineWidth: "Weight",
     shadowColor: "Shadow color",
     opacity: "Opacity",
     blur: "Blur",
@@ -118,6 +121,9 @@ const translations = {
     size: "字号",
     color: "颜色",
     shadow: "阴影",
+    outline: "描边",
+    outlineColor: "描边颜色",
+    outlineWidth: "粗细",
     shadowColor: "阴影颜色",
     opacity: "透明度",
     blur: "模糊",
@@ -187,6 +193,7 @@ const layerList = document.querySelector("#layerList");
 const inspectorTitle = document.querySelector("#inspectorTitle");
 const shadowControls = document.querySelector("#shadowControls");
 const shadowSection = document.querySelector("#shadowSection");
+const outlineSection = document.querySelector("#outlineSection");
 const fontModal = document.querySelector("#fontModal");
 const fontPickerButton = document.querySelector("#fontPickerButton");
 const fontPickerLabel = document.querySelector("#fontPickerLabel");
@@ -212,6 +219,9 @@ const controls = {
   shadowY: document.querySelector("#layerShadowY"),
   imageOpacity: document.querySelector("#layerImageOpacity"),
   imageFill: document.querySelector("#layerImageFill"),
+  outlineEnabled: document.querySelector("#layerOutlineEnabled"),
+  outlineColor: document.querySelector("#layerOutlineColor"),
+  outlineWidth: document.querySelector("#layerOutlineWidth"),
 };
 
 const outputs = {
@@ -220,6 +230,7 @@ const outputs = {
   shadowBlur: document.querySelector("#layerShadowBlurValue"),
   shadowX: document.querySelector("#layerShadowXValue"),
   shadowY: document.querySelector("#layerShadowYValue"),
+  outlineWidth: document.querySelector("#layerOutlineWidthValue"),
 };
 
 const layerThumb = document.querySelector("#layerImageThumb");
@@ -259,7 +270,7 @@ function createTextLayer(options = {}) {
     font: options.font ?? BUILTIN_FONTS[0].family,
     size: options.size ?? 360,
     color: options.color ?? "#627ef5",
-    outline: options.outline ?? true,
+    outline: options.outline ?? { enabled: true, color: "#ffffff", width: 7.5 },
     shadow: {
       enabled: options.shadow?.enabled ?? true,
       color: options.shadow?.color ?? "#1e232d",
@@ -287,8 +298,16 @@ const TEMPLATES = [
     buildLayers() {
       return [
         createBackgroundLayer(),
-        createTextLayer({ text: "灵不灵", ...defaultLayerOptions("name") }),
-        createTextLayer({ text: "08", ...defaultLayerOptions("number") }),
+        createTextLayer({
+          text: "灵不灵",
+          outline: { enabled: true, color: "#ffffff", width: 7.5 },
+          ...defaultLayerOptions("name"),
+        }),
+        createTextLayer({
+          text: "08",
+          outline: { enabled: false, color: "#ffffff", width: 5 },
+          ...defaultLayerOptions("number"),
+        }),
       ];
     },
   },
@@ -400,6 +419,7 @@ function createBackgroundLayer() {
     y: panelHeight() / 2,
     width: card.width,
     opacity: 100,
+    outline: { enabled: false, color: "#ffffff", width: 2 },
   };
 }
 
@@ -481,6 +501,46 @@ function loadScript(src) {
     }));
   }
   return loadedScripts.get(src);
+}
+
+// 可爱风 SVG 加载动画：摇摆的小帐篷 + 转脸太阳 + 闪烁星星
+const TENT_LOADER_SVG = `<svg class="tent-loader" viewBox="0 0 140 112" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="70" cy="100" rx="44" ry="7" fill="rgba(70,55,25,.16)"/>
+  <g class="tl-tent">
+    <path d="M70 22 L34 52 L34 61 L70 31 Z" fill="#e8dcb8"/>
+    <path d="M70 22 L106 52 L106 88 L70 58 Z" fill="#ffe98a" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M78 32 L98 48" stroke="#f6b73c" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="86" cy="58" r="2.2" fill="#31405f"/>
+    <circle cx="96" cy="62" r="2.2" fill="#31405f"/>
+    <path d="M85 68 Q91 72 97 67" stroke="#31405f" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="70" cy="17" r="4.5" fill="#ff9f43"/>
+  </g>
+  <g class="tl-sun">
+    <circle cx="22" cy="28" r="9" fill="#ff9f43"/>
+    <g stroke="#ff9f43" stroke-width="2.4" stroke-linecap="round">
+      <path d="M22 12 V16"/><path d="M22 40 V44"/><path d="M6 28 H10"/><path d="M34 28 H38"/>
+      <path d="M11 17 L14 20"/><path d="M30 36 L33 39"/><path d="M33 17 L30 20"/><path d="M14 36 L11 39"/>
+    </g>
+    <circle cx="19" cy="26" r="1.4" fill="#31405f"/>
+    <circle cx="25" cy="26" r="1.4" fill="#31405f"/>
+    <path d="M19 30 Q22 32.5 25 30" stroke="#31405f" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+  <path class="tl-spark" d="M120 14 Q121.5 22 129 24 Q121.5 26 120 34 Q118.5 26 111 24 Q118.5 22 120 14 Z" fill="#ffcf4d"/>
+  <path class="tl-spark tl-spark-2" d="M12 64 Q13.5 71 20 73 Q13.5 75 12 82 Q10.5 75 4 73 Q10.5 71 12 64 Z" fill="#7c9bff"/>
+</svg>`;
+
+function showLoader(container, message = "") {
+  const wrap = document.createElement("div");
+  wrap.className = "svg-loader-wrap";
+  wrap.innerHTML = TENT_LOADER_SVG;
+  if (message) {
+    const text = document.createElement("p");
+    text.className = "svg-loader-text";
+    text.textContent = message;
+    wrap.append(text);
+  }
+  container.append(wrap);
+  return () => wrap.remove();
 }
 
 function applyTranslations() {
@@ -798,7 +858,14 @@ function drawImageLayer(targetContext, layer) {
     targetContext.drawImage(layer.image, 0, 0, card.width, panelHeight());
   } else {
     const height = layer.width / layer.aspectRatio;
-    targetContext.drawImage(layer.image, layer.x - layer.width / 2, layer.y - height / 2, layer.width, height);
+    const left = layer.x - layer.width / 2;
+    const top = layer.y - height / 2;
+    targetContext.drawImage(layer.image, left, top, layer.width, height);
+    if (layer.outline?.enabled && layer.outline.width > 0) {
+      targetContext.lineWidth = Math.max(1, (layer.width * layer.outline.width) / 100);
+      targetContext.strokeStyle = layer.outline.color;
+      targetContext.strokeRect(left, top, layer.width, height);
+    }
   }
   targetContext.restore();
 }
@@ -818,8 +885,11 @@ function drawTextLayer(targetContext, layer) {
   targetContext.textBaseline = "middle";
   targetContext.lineJoin = "round";
   targetContext.miterLimit = 2;
-  targetContext.lineWidth = Math.max(20, fontSize * 0.075);
-  targetContext.strokeStyle = "#ffffff";
+  const outline = layer.outline?.enabled && layer.outline.width > 0 ? layer.outline : null;
+  if (outline) {
+    targetContext.lineWidth = Math.max(2, (fontSize * outline.width) / 100);
+    targetContext.strokeStyle = outline.color;
+  }
   targetContext.fillStyle = layer.color;
 
   if (layer.shadow.enabled) {
@@ -827,7 +897,7 @@ function drawTextLayer(targetContext, layer) {
     targetContext.shadowBlur = layer.shadow.blur;
     targetContext.shadowOffsetX = layer.shadow.x;
     targetContext.shadowOffsetY = layer.shadow.y;
-    if (layer.outline) targetContext.strokeText(layer.text, layer.x, layer.y, layer.maxWidth);
+    if (outline) targetContext.strokeText(layer.text, layer.x, layer.y, layer.maxWidth);
     targetContext.fillText(layer.text, layer.x, layer.y, layer.maxWidth);
     targetContext.shadowColor = "transparent";
     targetContext.shadowBlur = 0;
@@ -835,7 +905,7 @@ function drawTextLayer(targetContext, layer) {
     targetContext.shadowOffsetY = 0;
   }
 
-  if (layer.outline) targetContext.strokeText(layer.text, layer.x, layer.y, layer.maxWidth);
+  if (outline) targetContext.strokeText(layer.text, layer.x, layer.y, layer.maxWidth);
   targetContext.fillText(layer.text, layer.x, layer.y, layer.maxWidth);
   targetContext.restore();
 }
@@ -1381,6 +1451,7 @@ function updateControlOutputs() {
   outputs.shadowBlur.value = controls.shadowBlur.value;
   outputs.shadowX.value = controls.shadowX.value;
   outputs.shadowY.value = controls.shadowY.value;
+  outputs.outlineWidth.value = `${controls.outlineWidth.value}%`;
 }
 
 function updateShadowAvailability() {
@@ -1396,12 +1467,17 @@ function syncInspector() {
   layerInspector.hidden = !layer;
   if (!layer) return;
   inspectorTitle.textContent = getLayerName(layer);
+  outlineSection.hidden = Boolean(layer.fillsCanvas);
   document.querySelectorAll(".text-only").forEach((element) => {
     element.hidden = layer.type !== "text";
   });
   document.querySelectorAll(".image-only").forEach((element) => {
     element.hidden = layer.type !== "image";
   });
+
+  controls.outlineEnabled.checked = Boolean(layer.outline?.enabled);
+  controls.outlineColor.value = layer.outline?.color ?? "#ffffff";
+  controls.outlineWidth.value = layer.outline?.width ?? 2;
 
   if (layer.type === "text") {
     controls.text.value = layer.text;
@@ -1459,6 +1535,12 @@ function updateSelectedLayerFromInspector(event) {
     }
   }
 
+  layer.outline = {
+    enabled: controls.outlineEnabled.checked,
+    color: controls.outlineColor.value,
+    width: Number(controls.outlineWidth.value),
+  };
+
   updateControlOutputs();
   updateShadowAvailability();
   if (event?.target === controls.text) renderLayerList();
@@ -1513,6 +1595,7 @@ async function addImageLayer(file) {
       y: panelHeight() / 2,
       width: Math.min(520, image.naturalWidth),
       opacity: 100,
+      outline: { enabled: false, color: "#ffffff", width: 2 },
     };
     layers.push(layer);
     selectLayer(layer.id);
@@ -1536,6 +1619,7 @@ function duplicateSelectedLayer() {
     x: layer.x + 45,
     y: layer.y + 45,
     shadow: layer.type === "text" ? { ...layer.shadow } : undefined,
+    outline: layer.outline ? { ...layer.outline } : undefined,
   };
   clampLayer(copy);
   layers.push(copy);
@@ -1901,7 +1985,13 @@ async function parseBatchFile(file) {
   try {
     await loadScript("vendor/xlsx.full.min.js");
     if (!window.XLSX) return;
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellText: true });
+    // 无 BOM 的 UTF-8 CSV（WPS / 程序生成）会被误判为 Latin-1，显式指定 UTF-8
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+    const workbook = hasBom
+      ? XLSX.read(buffer, { type: "array", cellText: true })
+      : XLSX.read(bytes, { type: "array", cellText: true, codepage: 65001 });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
     const parsed = spreadsheetRowsToData(rows);
@@ -1968,7 +2058,8 @@ async function downloadBatchZip() {
       zip.file(`${indexPart}-${namePart}.png`, blob);
       batchControls.progress.value = index + 1;
       notify("batchProcessing", { current: index + 1, total: records.length });
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      // 让出主线程刷新进度；用 setTimeout 以兼容后台标签页（rAF 会被暂停）
+      await new Promise((resolve) => setTimeout(resolve, 16));
     }
 
     bindings.forEach((binding, i) => {
@@ -2015,89 +2106,6 @@ function spreadsheetRowsToData(rows) {
   return { headers, data };
 }
 
-async function parseBatchFile(file) {
-  if (!file || !window.XLSX) return;
-  try {
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellText: true });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
-    const parsed = spreadsheetRowsToData(rows);
-    batchHeaders = parsed.headers;
-    batchRows = parsed.data;
-    renderBatchBindings();
-    updateBatchUi();
-  } catch (error) {
-    console.error(error);
-    batchHeaders = [];
-    batchRows = [];
-    updateBatchUi();
-    notify("sheetError", {}, "error");
-  }
-}
-
-async function downloadBatchZip() {
-  if (!window.JSZip) {
-    notify("sheetError", {}, "error");
-    return;
-  }
-  const nameLayer = getRoleLayer("name");
-  const numberLayer = getRoleLayer("number");
-  if (!nameLayer || !numberLayer) {
-    notify("batchMissingLayers", {}, "error");
-    return;
-  }
-
-  const records = getBatchRecords();
-  if (records.length === 0) {
-    notify("batchMissingColumns", {}, "error");
-    return;
-  }
-
-  const originalText = { name: nameLayer.text, number: numberLayer.text };
-  const zip = new JSZip();
-  batchControls.exportButton.disabled = true;
-  batchControls.progress.hidden = false;
-  batchControls.progress.max = records.length;
-  batchControls.progress.value = 0;
-
-  try {
-    for (const [index, record] of records.entries()) {
-      nameLayer.text = record.name;
-      numberLayer.text = record.number;
-          render();
-      const blob = await canvasToBlob(canvas);
-      const indexPart = String(index + 1).padStart(3, "0");
-      const filename = `${indexPart}-${safeFilenamePart(record.name, "name")}-${safeFilenamePart(record.number, "number")}.png`;
-      zip.file(filename, blob);
-      batchControls.progress.value = index + 1;
-      notify("batchProcessing", { current: index + 1, total: records.length });
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
-    }
-
-    nameLayer.text = originalText.name;
-    numberLayer.text = originalText.number;
-      render();
-    notify("batchZipping");
-    const archive = await zip.generateAsync(
-      { type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } },
-      (metadata) => {
-        batchControls.progress.max = 100;
-        batchControls.progress.value = metadata.percent;
-      },
-    );
-    downloadBlob(archive, `nameplates-${new Date().toISOString().slice(0, 10)}.zip`);
-    notify("batchDone", { count: records.length }, "success");
-  } catch (error) {
-    console.error(error);
-    nameLayer.text = originalText.name;
-    numberLayer.text = originalText.number;
-      render();
-    notify("fileError", {}, "error");
-  } finally {
-    batchControls.progress.hidden = true;
-    updateBatchUi();
-  }
-}
 
 /* ---------- Wiring ---------- */
 
@@ -2109,6 +2117,10 @@ Object.values(controls).forEach((control) => {
 // Unfold the shadow controls the moment shadow is switched on.
 controls.shadowEnabled.addEventListener("change", () => {
   if (controls.shadowEnabled.checked) shadowSection.open = true;
+});
+
+controls.outlineEnabled.addEventListener("change", () => {
+  if (controls.outlineEnabled.checked) outlineSection.open = true;
 });
 
 document.querySelector("#addTextButton").addEventListener("click", addTextLayer);
