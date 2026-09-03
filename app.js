@@ -76,6 +76,8 @@ const translations = {
     apply: "Apply",
     threeDTab: "3D preview",
     threeDHint: "Drag to rotate · scroll to zoom · double-click to reset",
+    loadingThree: "Loading 3D tools…",
+    loadingXlsx: "Loading spreadsheet tools…",
     dragHint: "Drag to move · drag a corner to resize · arrow keys to nudge · Shift + arrows for 1 px steps",
     downloaded: "PNG downloaded.",
     resetDone: "Reset to the default card.",
@@ -160,6 +162,8 @@ const translations = {
     apply: "应用",
     threeDTab: "3D 预览",
     threeDHint: "拖动旋转 · 滚轮缩放 · 双击复位",
+    loadingThree: "正在加载 3D 组件…",
+    loadingXlsx: "正在加载表格组件…",
     dragHint: "拖动移动 · 拖动边角缩放 · 方向键微调 · Shift + 方向键 1px 步进",
     downloaded: "PNG 已下载。",
     resetDone: "已恢复默认内容。",
@@ -529,7 +533,10 @@ const TENT_LOADER_SVG = `<svg class="tent-loader" viewBox="0 0 140 112" fill="no
   <path class="tl-spark tl-spark-2" d="M12 64 Q13.5 71 20 73 Q13.5 75 12 82 Q10.5 75 4 73 Q10.5 71 12 64 Z" fill="#7c9bff"/>
 </svg>`;
 
+const LOADER_MIN_MS = 900; // 最短展示时长：本地加载太快时动画一闪而过，看不到
+
 function showLoader(container, message = "") {
+  const startedAt = performance.now();
   const wrap = document.createElement("div");
   wrap.className = "svg-loader-wrap";
   wrap.innerHTML = TENT_LOADER_SVG;
@@ -540,7 +547,13 @@ function showLoader(container, message = "") {
     wrap.append(text);
   }
   container.append(wrap);
-  return () => wrap.remove();
+  let hidden = false;
+  return () => {
+    if (hidden) return;
+    hidden = true;
+    const remaining = LOADER_MIN_MS - (performance.now() - startedAt);
+    setTimeout(() => wrap.remove(), Math.max(0, remaining));
+  };
 }
 
 function applyTranslations() {
@@ -1108,12 +1121,14 @@ function tick3D() {
 }
 
 async function activate3D() {
+  const hideLoader = showLoader(threeDContainer, t("loadingThree"));
   try {
     await loadScript("vendor/three.min.js");
   } catch (error) {
     console.error(error);
   }
   if (!init3D()) {
+    hideLoader();
     // WebGL 不可用：回退为平面完整卡片
     threeDContainer.hidden = true;
     canvas.classList.remove("visually-hidden");
@@ -1132,6 +1147,8 @@ async function activate3D() {
     requestAnimationFrame(tick3D);
   }
   threeD.needsRender = true;
+  // 首帧渲染完成后再撤掉加载动画
+  requestAnimationFrame(() => requestAnimationFrame(hideLoader));
 }
 
 function deactivate3D() {
@@ -1982,6 +1999,7 @@ function spreadsheetRowsToData(rows) {
 
 async function parseBatchFile(file) {
   if (!file) return;
+  const hideLoader = showLoader(document.querySelector(".collapsible-body"), t("loadingXlsx"));
   try {
     await loadScript("vendor/xlsx.full.min.js");
     if (!window.XLSX) return;
@@ -2008,6 +2026,8 @@ async function parseBatchFile(file) {
     batchRows = [];
     updateBatchUi();
     notify("sheetError", {}, "error");
+  } finally {
+    hideLoader();
   }
 }
 
