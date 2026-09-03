@@ -6,7 +6,9 @@
 
 1. 双击 `index.html` 在浏览器中打开即可（推荐 Chrome / Edge）。
 2. 在模板条选择模板；点击图层 chip（如「姓名」「编号」）后在检查器的「文字」字段输入内容，画布上拖动调整位置、拖动边角缩放。
-3. 在预览区可选择编辑区比例预设（2:1 / 8:3 / 4:1）或自定义宽高，画布容器按比例自适应大小。
+3. 打开「3D 预览」可查看折叠成立体的桌面铭牌效果：拖动旋转、滚轮缩放、双击复位，正面背面都能检查。
+4. 在预览区可选择编辑区比例预设（2:1 / 8:3 / 4:1）或自定义宽高，画布容器按比例自适应大小。
+5. 点击左下角「下载 PNG」导出。
 4. 点击左下角「下载 PNG」导出。
 
 底图已内置于页面中，双击打开即可正常下载，无需启动本地服务。
@@ -45,4 +47,4 @@
   { printf "window.TEMPLATE_DATA_URI = 'data:image/png;base64,%s';\n" "$(base64 -i assets/template-clean.png | tr -d '\n')" > template-data.js; }
   ```
 - `assets/template-clean.png`：清除原姓名及编号后的底图（`template-data.js` 的来源）。
-- `vendor`：离线表格读取和 ZIP 打包依赖（SheetJS 与 JSZip）。
+- `vendor`：离线依赖（SheetJS、JSZip 与 Three.js 3D 预览）。

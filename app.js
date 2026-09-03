@@ -71,7 +71,8 @@ const translations = {
     ratioWide: "4:1 · Wide",
     sizeCustom: "Custom…",
     apply: "Apply",
-    fullCardTab: "Full card",
+    threeDTab: "3D preview",
+    threeDHint: "Drag to rotate · scroll to zoom · double-click to reset",
     dragHint: "Drag to move · drag a corner to resize · arrow keys to nudge · Shift + arrows for 1 px steps",
     downloaded: "PNG downloaded.",
     resetDone: "Reset to the default card.",
@@ -151,7 +152,8 @@ const translations = {
     ratioWide: "4:1 · 横幅",
     sizeCustom: "自定义…",
     apply: "应用",
-    fullCardTab: "完整卡片",
+    threeDTab: "3D 预览",
+    threeDHint: "拖动旋转 · 滚轮缩放 · 双击复位",
     dragHint: "拖动移动 · 拖动边角缩放 · 方向键微调 · Shift + 方向键 1px 步进",
     downloaded: "PNG 已下载。",
     resetDone: "已恢复默认内容。",
@@ -460,6 +462,25 @@ function notify(key, replacements = {}, kind = "info") {
   if (kind !== "error") {
     toastTimer = window.setTimeout(() => toast.classList.remove("show"), 2800);
   }
+}
+
+// 低频功能（批量导入/导出、3D 预览）的脚本按需加载
+const loadedScripts = new Map();
+
+function loadScript(src) {
+  if (!loadedScripts.has(src)) {
+    loadedScripts.set(src, new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => {
+        loadedScripts.delete(src);
+        reject(new Error(`加载失败：${src}`));
+      };
+      document.head.append(script);
+    }));
+  }
+  return loadedScripts.get(src);
 }
 
 function applyTranslations() {
@@ -828,6 +849,298 @@ function getLayerBounds(layer, targetContext = editorContext) {
   };
 }
 
+/* ---------- 3D preview (tent nameplate) ---------- */
+
+const threeDContainer = document.querySelector("#threeDContainer");
+const threeD = {
+  inited: false,
+  failed: false,
+  active: false,
+  renderer: null,
+  scene: null,
+  camera: null,
+  group: null,
+  faces: [],
+  frontTexture: null,
+  backCanvas: null,
+  backTexture: null,
+  yaw: -0.55,
+  pitch: 0.4,
+  radius: 5.6,
+  targetY: 0.72,
+  autoRotating: true,
+  needsRender: true,
+  dirtyTextures: true,
+};
+
+function update3DTextures() {
+  if (!threeD.inited) return;
+  threeD.frontTexture.needsUpdate = true;
+  // 背面用未旋转的面板：折叠的空间变换已由 3D 几何完成，
+  // 对面看到的文字应与正面一样是正立的
+  const back = threeD.backCanvas;
+  if (back.width !== panelCanvas.width || back.height !== panelCanvas.height) {
+    back.width = panelCanvas.width;
+    back.height = panelCanvas.height;
+  }
+  const backCtx = back.getContext("2d");
+  backCtx.setTransform(1, 0, 0, 1, 0, 0);
+  backCtx.clearRect(0, 0, back.width, back.height);
+  backCtx.drawImage(panelCanvas, 0, 0);
+  threeD.backTexture.needsUpdate = true;
+  threeD.needsRender = true;
+}
+
+function buildTent() {
+  const group = threeD.group;
+  threeD.faces.forEach((face) => {
+    group.remove(face);
+    face.geometry.dispose();
+  });
+  threeD.faces = [];
+  if (threeD.edges) {
+    group.remove(threeD.edges);
+    threeD.edges.geometry.dispose();
+    threeD.edges.material.dispose();
+    threeD.edges = null;
+  }
+
+  const aspect = panelHeight() / card.width;
+  const width = 3.2;
+  const height = width * aspect;
+  const tilt = THREE.MathUtils.degToRad(16);
+  const thickness = 0.1;
+  const ridgeY = height * Math.cos(tilt);
+  const geometry = new THREE.PlaneGeometry(width, height);
+
+  const d = height * Math.sin(tilt);
+  const h = height * Math.cos(tilt);
+  const hx = thickness / 2;
+  const ct = Math.cos(tilt);
+  const st = Math.sin(tilt);
+
+  // 两面纹理贴在外侧表面（略微外移避免与侧壁 z-fighting）
+  const makeFace = (texture) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(0, ridgeY, 0);
+    pivot.rotation.order = "YXZ";
+    pivot.rotation.y = texture === threeD.backTexture ? Math.PI : 0;
+    pivot.rotation.x = -tilt;
+    const mesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshLambertMaterial({ map: texture }),
+    );
+    mesh.position.set(0, -height / 2, hx + 0.003);
+    pivot.add(mesh);
+    group.add(pivot);
+    threeD.faces.push(pivot);
+  };
+
+  makeFace(threeD.frontTexture);
+  makeFace(threeD.backTexture);
+
+  // 厚度：外轮廓挤出侧壁（顶脊、左右三角、前后底边），中间挖空
+  const shape = new THREE.Shape();
+  shape.moveTo(d + hx * ct, hx * st);
+  shape.lineTo(0, h + hx / ct);
+  shape.lineTo(-d - hx * ct, hx * st);
+  shape.lineTo(-d + hx * ct, -hx * st);
+  shape.lineTo(0, h - hx / ct);
+  shape.lineTo(d - hx * ct, -hx * st);
+  shape.closePath();
+
+  const hole = new THREE.Path();
+  hole.moveTo(d - hx * ct, -hx * st);
+  hole.lineTo(0, h - hx / ct);
+  hole.lineTo(-d + hx * ct, -hx * st);
+  hole.lineTo(-d - hx * ct, hx * st);
+  hole.lineTo(0, h + hx / ct);
+  hole.lineTo(d + hx * ct, hx * st);
+  hole.closePath();
+  shape.holes.push(hole);
+
+  const edges = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false }),
+    new THREE.MeshLambertMaterial({ color: 0xf7f3e8 }),
+  );
+  edges.rotation.y = -Math.PI / 2;
+  edges.position.x = width / 2;
+  group.add(edges);
+  threeD.edges = edges;
+  threeD.needsRender = true;
+}
+
+function makeShadowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createRadialGradient(128, 64, 10, 128, 64, 120);
+  gradient.addColorStop(0, "rgba(60, 50, 30, 0.32)");
+  gradient.addColorStop(1, "rgba(60, 50, 30, 0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 256, 128);
+  return new THREE.CanvasTexture(canvas);
+}
+
+function update3DCamera() {
+  const { yaw, pitch, radius, targetY } = threeD;
+  threeD.camera.position.set(
+    radius * Math.cos(pitch) * Math.sin(yaw),
+    targetY + radius * Math.sin(pitch),
+    radius * Math.cos(pitch) * Math.cos(yaw),
+  );
+  threeD.camera.lookAt(0, targetY, 0);
+}
+
+function resize3D() {
+  if (!threeD.inited) return;
+  const width = threeDContainer.clientWidth;
+  const height = threeDContainer.clientHeight;
+  if (!width || !height) return;
+  threeD.renderer.setSize(width, height, false);
+  Object.assign(threeD.renderer.domElement.style, { width: "100%", height: "100%" });
+  threeD.camera.aspect = width / height;
+  threeD.camera.updateProjectionMatrix();
+  threeD.needsRender = true;
+}
+
+function tick3D() {
+  if (!threeD.active) return;
+  if (threeD.autoRotating) {
+    threeD.yaw += 0.0032;
+    threeD.needsRender = true;
+  }
+  if (threeD.dirtyTextures) {
+    update3DTextures();
+    threeD.dirtyTextures = false;
+  }
+  if (threeD.needsRender) {
+    update3DCamera();
+    threeD.renderer.render(threeD.scene, threeD.camera);
+    threeD.needsRender = false;
+  }
+  requestAnimationFrame(tick3D);
+}
+
+async function activate3D() {
+  try {
+    await loadScript("vendor/three.min.js");
+  } catch (error) {
+    console.error(error);
+  }
+  if (!init3D()) {
+    // WebGL 不可用：回退为平面完整卡片
+    threeDContainer.hidden = true;
+    canvas.classList.remove("visually-hidden");
+    canvas.classList.add("three-fallback");
+    render();
+    return;
+  }
+  cardCanvasHidden();
+  if (threeD.dirtyTextures) {
+    update3DTextures();
+    threeD.dirtyTextures = false;
+  }
+  resize3D();
+  if (!threeD.active) {
+    threeD.active = true;
+    requestAnimationFrame(tick3D);
+  }
+  threeD.needsRender = true;
+}
+
+function deactivate3D() {
+  threeD.active = false;
+  cardCanvasHidden();
+}
+
+function cardCanvasHidden() {
+  threeDContainer.hidden = false;
+  canvas.classList.add("visually-hidden");
+  canvas.classList.remove("three-fallback");
+}
+
+function init3D() {
+  if (threeD.inited) return true;
+  if (threeD.failed || typeof THREE === "undefined") {
+    threeD.failed = threeD.failed || typeof THREE === "undefined";
+    return false;
+  }
+  try {
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    threeD.renderer = renderer;
+    threeDContainer.appendChild(renderer.domElement);
+    renderer.domElement.className = "three-canvas";
+
+    threeD.scene = new THREE.Scene();
+    threeD.camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+    threeD.scene.add(new THREE.AmbientLight(0xffffff, 0.92));
+    const key = new THREE.DirectionalLight(0xffffff, 0.42);
+    key.position.set(-2.5, 4, 3.5);
+    threeD.scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.3);
+    fill.position.set(2, 2.5, -3);
+    threeD.scene.add(fill);
+
+    threeD.frontTexture = new THREE.CanvasTexture(panelCanvas);
+    threeD.frontTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    threeD.backCanvas = document.createElement("canvas");
+    threeD.backTexture = new THREE.CanvasTexture(threeD.backCanvas);
+    threeD.backTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+    threeD.group = new THREE.Group();
+    threeD.scene.add(threeD.group);
+
+    const shadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.8, 2.6),
+      new THREE.MeshBasicMaterial({ map: makeShadowTexture(), transparent: true, depthWrite: false }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    threeD.group.add(shadow);
+
+    buildTent();
+
+    // 交互：拖拽旋转 / 滚轮缩放 / 双击复位
+    threeDContainer.addEventListener("pointerdown", (event) => {
+      threeD.autoRotating = false;
+      threeD.dragging = { x: event.clientX, y: event.clientY, yaw: threeD.yaw, pitch: threeD.pitch };
+      threeDContainer.setPointerCapture(event.pointerId);
+    });
+    threeDContainer.addEventListener("pointermove", (event) => {
+      if (!threeD.dragging) return;
+      threeD.yaw = threeD.dragging.yaw - (event.clientX - threeD.dragging.x) * 0.006;
+      threeD.pitch = Math.min(1.15, Math.max(0.04, threeD.dragging.pitch + (event.clientY - threeD.dragging.y) * 0.004));
+      threeD.needsRender = true;
+    });
+    threeDContainer.addEventListener("pointerup", () => { threeD.dragging = null; });
+    threeDContainer.addEventListener("pointercancel", () => { threeD.dragging = null; });
+    threeDContainer.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      threeD.radius = Math.min(10, Math.max(3, threeD.radius * (1 + Math.sign(event.deltaY) * 0.08)));
+      threeD.needsRender = true;
+    }, { passive: false });
+    threeDContainer.addEventListener("dblclick", () => {
+      threeD.yaw = -0.55;
+      threeD.pitch = 0.4;
+      threeD.radius = 5.6;
+      threeD.needsRender = true;
+    });
+
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(() => resize3D()).observe(threeDContainer);
+    }
+
+    threeD.inited = true;
+    return true;
+  } catch (error) {
+    console.error(error);
+    threeD.failed = true;
+    return false;
+  }
+}
+
 function drawSelection(targetContext) {
   const layer = getSelectedLayer();
   if (!layer?.visible) return;
@@ -901,6 +1214,7 @@ function render() {
   context.rotate(Math.PI);
   context.drawImage(panelCanvas, 0, 0);
   context.restore();
+  threeD.dirtyTextures = true;
 }
 
 // 编辑区比例的简化表达（如 2:1、8:3、4:1）
@@ -964,6 +1278,7 @@ function applyCardSize(width, height) {
   });
   // 卡片尺寸变了，缩略图按新比例重新生成
   Object.keys(templateThumbnails).forEach((key) => delete templateThumbnails[key]);
+  if (threeD.inited) buildTent();
   updateSizePresetDisplay();
   render();
   buildTemplateStrip();
@@ -1568,8 +1883,10 @@ function spreadsheetRowsToData(rows) {
 }
 
 async function parseBatchFile(file) {
-  if (!file || !window.XLSX) return;
+  if (!file) return;
   try {
+    await loadScript("vendor/xlsx.full.min.js");
+    if (!window.XLSX) return;
     const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellText: true });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
@@ -1591,8 +1908,11 @@ async function parseBatchFile(file) {
 }
 
 async function downloadBatchZip() {
-  if (!window.JSZip) {
-    notify("sheetError", {}, "error");
+  try {
+    await loadScript("vendor/jszip.min.js");
+  } catch (error) {
+    console.error(error);
+    notify("fileError", {}, "error");
     return;
   }
 
@@ -1831,10 +2151,11 @@ batchControls.exportButton.addEventListener("click", downloadBatchZip);
 
 const fullCardToggle = document.querySelector("#fullCardToggle");
 fullCardToggle.addEventListener("click", () => {
-  const showFullCard = fullCardToggle.getAttribute("aria-checked") !== "true";
-  fullCardToggle.setAttribute("aria-checked", String(showFullCard));
-  document.querySelector("#editorView").classList.toggle("active", !showFullCard);
-  document.querySelector("#fullView").classList.toggle("active", showFullCard);
+  const show = fullCardToggle.getAttribute("aria-checked") !== "true";
+  fullCardToggle.setAttribute("aria-checked", String(show));
+  document.querySelector("#editorView").classList.toggle("active", !show);
+  document.querySelector("#threeDView").classList.toggle("active", show);
+  if (show) activate3D(); else deactivate3D();
 });
 
 const sizeDropdown = createDropdown({

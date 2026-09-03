@@ -163,7 +163,7 @@
           <div class="preview-heading-meta">
             <button id="fullCardToggle" class="switch-field" type="button" role="switch" aria-checked="false">
               <span class="switch" aria-hidden="true"></span>
-              <span class="switch-label" data-i18n="fullCardTab">完整卡片</span>
+              <span class="switch-label" data-i18n="threeDTab">3D 预览</span>
             </button>
             <span id="sizePresetHost"></span>
             <span id="customSizeFields" class="custom-size" hidden>
@@ -182,10 +182,10 @@
           <p class="canvas-hint" data-i18n="dragHint">拖动调整位置 · 方向键微调 · Shift + 方向键做 1px 步进</p>
         </div>
 
-        <div id="fullView" class="preview-view">
-          <div class="canvas-frame">
-            <canvas id="cardCanvas" width="2362" height="2362" aria-label="Generated full card preview"></canvas>
-          </div>
+        <div id="threeDView" class="preview-view">
+          <div id="threeDContainer" class="three-container"></div>
+          <p class="canvas-hint" data-i18n="threeDHint">拖动旋转 · 滚轮缩放 · 双击复位</p>
+          <canvas id="cardCanvas" class="visually-hidden" width="2362" height="2362" aria-hidden="true"></canvas>
         </div>
 
         <section class="template-section" aria-labelledby="templates-title">
@@ -216,9 +216,8 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <script src="vendor/xlsx.full.min.js"></script>
-    <script src="vendor/jszip.min.js"></script>
-    <script src="template-data.js?v=2"></script>
-    <script src="app.js?v=2"></script>
+    <!-- xlsx / jszip / three 按需加载（首次使用批量导入、ZIP 打包或 3D 预览时才下载） -->
+    <script defer src="template-data.js?v=2"></script>
+    <script defer src="app.js?v=2"></script>
   </body>
 </html>
