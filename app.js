@@ -256,7 +256,7 @@ function createTextLayer(options = {}) {
     // Auto-shrink only guards against running off the canvas, so the size
     // slider stays effective across its whole range.
     maxWidth: options.maxWidth ?? card.width - 160,
-    font: options.font ?? "ZCOOL KuaiLe",
+    font: options.font ?? BUILTIN_FONTS[0].family,
     size: options.size ?? 360,
     color: options.color ?? "#627ef5",
     outline: options.outline ?? true,
@@ -412,7 +412,7 @@ function defaultLayerOptions(role) {
       role,
       x: 2070 * ratioX,
       y: 310 * ratioY,
-      font: "Anton",
+      font: BUILTIN_FONTS[0].family,
       size: Math.round(410 * ratioX),
       color: "#ffffff",
       outline: false,
@@ -632,16 +632,15 @@ function createDropdown({
 
 
 const BUILTIN_FONTS = [
-  { family: "ZCOOL KuaiLe", label: "ZCOOL KuaiLe" },
-  { family: "Anton", label: "Anton" },
-  { family: "system-ui", label: "System Sans" },
-  { family: "Arial", label: "Arial" },
-  { family: "Helvetica", label: "Helvetica" },
-  { family: "Georgia", label: "Georgia" },
-  { family: "Impact", label: "Impact" },
-  { family: "PingFang SC", label: "PingFang SC" },
-  { family: "Songti SC", label: "Songti SC" },
-  { family: "Hiragino Sans GB", label: "Hiragino Sans GB" },
+  {
+    label: "黑体（默认）",
+    family: '"PingFang SC", "Microsoft YaHei", "Heiti SC", sans-serif',
+  },
+  { label: "宋体", family: '"Songti SC", SimSun, serif' },
+  { label: "楷体", family: '"Kaiti SC", STKaiti, KaiTi, serif' },
+  { label: "圆体", family: '"Yuanti SC", YouYuan, sans-serif' },
+  { label: "无衬线", family: "system-ui, sans-serif" },
+  { label: "衬线", family: 'Georgia, "Times New Roman", "Songti SC", serif' },
 ];
 
 let customFonts = []; // { family, label } — populated by font file upload
@@ -752,8 +751,23 @@ function applyFontSelection(family) {
 
 /* ---------- Drawing ---------- */
 
+const GENERIC_FONT_FAMILIES = new Set([
+  "sans-serif", "serif", "monospace", "cursive", "fantasy", "system-ui",
+  "ui-sans-serif", "ui-serif", "ui-monospace", "inherit",
+]);
+
+// 兼容单字体名与逗号分隔的字体栈，统一规范为带引号的 CSS font-family
 function cssFontFamily(family) {
-  return family.includes(" ") ? `"${family}"` : family;
+  return family
+    .split(",")
+    .map((part) => {
+      const name = part.trim().replace(/^["']|["']$/g, "");
+      if (!name) return null;
+      if (GENERIC_FONT_FAMILIES.has(name.toLowerCase())) return name;
+      return `"${name}"`;
+    })
+    .filter(Boolean)
+    .join(", ");
 }
 
 function fitFontSize(targetContext, layer) {
@@ -2216,18 +2230,9 @@ function refreshDropdownLabels() {
   sizeDropdown.setAriaLabel(t("sizeLabel"));
 }
 
-template.addEventListener("load", async () => {
-  try {
-    await Promise.all([
-      document.fonts.load('430px "ZCOOL KuaiLe"'),
-      document.fonts.load('410px "Anton"'),
-    ]);
-    templateReady = true;
-    reset(true);
-  } catch (error) {
-    console.error(error);
-    notify("error", {}, "error");
-  }
+template.addEventListener("load", () => {
+  templateReady = true;
+  reset(true);
 });
 
 template.addEventListener("error", () => notify("error", {}, "error"));
@@ -2239,4 +2244,4 @@ notify("loading");
 // The template ships inline as a data URI (template-data.js) so the canvas
 // never becomes tainted: downloads work even when index.html is opened
 // directly from disk. The file path is kept as a fallback.
-template.src = window.TEMPLATE_DATA_URI || "assets/template-clean.png";
+template.src = window.TEMPLATE_DATA_URI || "assets/template-clean.webp";

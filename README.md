@@ -32,10 +32,7 @@
 
 ## 字体
 
-- 中文姓名：ZCOOL KuaiLe（站酷快乐体）。
-- 数字：Anton Regular。
-
-点击检查器中的「字体」会打开字体选择弹窗：左侧为字体名称，右侧用当前姓名实时预览效果，顶部可搜索过滤（分组为内置字体 / 上传的字体 / 系统字体）。底部可「上传字体文件」使用单独的字体（.ttf / .otf / .woff / .woff2），或「加载系统字体」列出本机全部字体（仅 localhost 模式）。字体清单和姓名数据都只在本机浏览器中处理。
+默认使用系统字体栈（macOS 苹方 / Windows 雅黑等），也内置宋体、楷体、圆体等常用组合。点击检查器中的「字体」会打开字体选择弹窗：左侧为字体名称，右侧用当前文字实时预览效果，顶部可搜索过滤（分组为内置组合 / 上传的字体 / 系统字体）。底部可「上传字体文件」使用单独的字体（.ttf / .otf / .woff / .woff2），或「加载系统字体」列出本机全部字体（仅 localhost 模式）。字体清单和姓名数据都只在本机浏览器中处理。
 
 ## 文件说明
 
@@ -46,5 +43,5 @@
   ```bash
   { printf "window.TEMPLATE_DATA_URI = 'data:image/png;base64,%s';\n" "$(base64 -i assets/template-clean.png | tr -d '\n')" > template-data.js; }
   ```
-- `assets/template-clean.png`：清除原姓名及编号后的底图（`template-data.js` 的来源）。
+- `assets/template-clean.webp`：清除原姓名及编号后的底图（`template-data.js` 的来源，WebP 压缩）。
 - `vendor`：离线依赖（SheetJS、JSZip 与 Three.js 3D 预览）。
