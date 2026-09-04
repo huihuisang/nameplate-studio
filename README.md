@@ -45,3 +45,8 @@
   ```
 - `assets/template-clean.webp`：清除原姓名及编号后的底图（`template-data.js` 的来源，WebP 压缩）。
 - `vendor`：离线依赖（SheetJS、JSZip 与 Three.js 3D 预览）。
+
+
+## 发布到 ajigu 产品站
+
+执行 `./deploy-ajigu.sh` 会把工具发布到 ajigu-site 仓库的 `nameplate/` 子目录，自动上线到 **https://ajigu.com/nameplate/**（ajigu-site 的 GitHub Pages 会自动重建）。
