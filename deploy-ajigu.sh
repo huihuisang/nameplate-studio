@@ -11,7 +11,7 @@ rm -rf "$DEST"
 mkdir -p "$DEST/vendor"
 mkdir -p "$DEST/assets"
 cp index.html styles.css app.js template-data.js .nojekyll "$DEST/"
-cp assets/ajigu-logo.png "$DEST/assets/"
+cp assets/ajigu-logo.png assets/nameplate-icon.png assets/og.png "$DEST/assets/"
 cp vendor/xlsx.full.min.js vendor/jszip.min.js vendor/three.min.js "$DEST/vendor/"
 
 cd "$SITE"
