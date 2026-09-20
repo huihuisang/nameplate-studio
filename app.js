@@ -91,7 +91,7 @@ const translations = {
   },
   "zh-CN": {
     title: "桌面铭牌工作室",
-    subtitle: "选择模板、编辑图层，一键导出可打印的桌面铭牌。",
+    subtitle: "选择模板、编辑图层，一键导出可打印的会议折叠桌牌。",
     layers: "图层",
     templates: "模板",
     templateBlank: "空白",
