@@ -1,5 +1,6 @@
-const TEMPLATE_SIZE = 2362; // 底图固定尺寸，绘制时拉伸到卡片尺寸
-const card = { width: TEMPLATE_SIZE, height: TEMPLATE_SIZE };
+const TEMPLATE_WIDTH = 2362;
+const TEMPLATE_HEIGHT = 1181; // 底图只存单面板（半张），对折卡的上面由面板旋转生成
+const card = { width: TEMPLATE_WIDTH, height: TEMPLATE_WIDTH };
 const panelHeight = () => Math.round(card.height / 2);
 
 const translations = {
@@ -399,10 +400,9 @@ function createBackgroundLayer() {
     visible: true,
     fillsCanvas: true, // 始终铺满画布：不参与拖拽缩放，忽略位置/宽度
     // 直接引用主模板图（load 之后才会建层，complete 恒为真），
-    // 用 srcRect 取下半区——不再裁剪出第二张异步图片，避免缩略图/画布竞态丢底图
+    // 底图本身就是单面板，整图铺满——不裁剪出第二张异步图片，避免缩略图/画布竞态丢底图
     image: template,
-    srcRect: [0, TEMPLATE_SIZE / 2, TEMPLATE_SIZE, TEMPLATE_SIZE / 2],
-    aspectRatio: TEMPLATE_SIZE / (TEMPLATE_SIZE / 2),
+    aspectRatio: TEMPLATE_WIDTH / TEMPLATE_HEIGHT,
     x: card.width / 2,
     y: panelHeight() / 2,
     width: card.width,
@@ -411,10 +411,10 @@ function createBackgroundLayer() {
   };
 }
 
-// 默认文字的模板位置（基于 2362 × 1181 下半区设计稿），按当前卡片尺寸缩放
+// 默认文字的模板位置（基于 2362 × 1181 单面板设计稿），按当前卡片尺寸缩放
 function defaultLayerOptions(role) {
-  const ratioX = card.width / TEMPLATE_SIZE;
-  const ratioY = panelHeight() / (TEMPLATE_SIZE / 2);
+  const ratioX = card.width / TEMPLATE_WIDTH;
+  const ratioY = panelHeight() / TEMPLATE_HEIGHT;
   if (role === "number") {
     return {
       role,
@@ -1521,7 +1521,7 @@ function syncInspector() {
   } else if (layer.type === "image") {
     controls.imageOpacity.value = layer.opacity;
     controls.imageFill.checked = Boolean(layer.fillsCanvas);
-    // 图片小图：优先对象 URL；背景图层用当前模板缩略图（正是下半区画面）
+    // 图片小图：优先对象 URL；背景图层用当前模板缩略图（正是面板画面）
     if (layerThumb) {
       layerThumb.src = layer.objectUrl
         || (layer.fillsCanvas && templateThumbnails[currentTemplateId])
