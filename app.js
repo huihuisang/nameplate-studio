@@ -11,6 +11,10 @@ const translations = {
     templates: "Templates",
     templateBlank: "Blank",
     templateClassic: "Classic",
+    templateSampleName: "Guest",
+    templateNavy: "Navy & Gold",
+    templateCoral: "Coral Pop",
+    templateForest: "Forest",
     backgroundLayer: "Background",
     templateApplied: "Template applied.",
     addText: "+ Text",
@@ -97,6 +101,10 @@ const translations = {
     templates: "模板",
     templateBlank: "空白",
     templateClassic: "经典",
+    templateSampleName: "灵不灵",
+    templateNavy: "深蓝鎏金",
+    templateCoral: "珊瑚活力",
+    templateForest: "森林雅致",
     backgroundLayer: "背景",
     templateApplied: "模板已应用。",
     addText: "＋文本",
@@ -179,6 +187,22 @@ const translations = {
 };
 
 const template = new Image();
+const generatedTemplateBackgrounds = {
+  navy: createTemplateImage("assets/templates/navy-gold.png"),
+  coral: createTemplateImage("assets/templates/coral.png"),
+  forest: createTemplateImage("assets/templates/forest.png"),
+};
+
+function waitForTemplateImage(image) {
+  return new Promise((resolve, reject) => {
+    if (image.complete && image.naturalWidth > 0) {
+      resolve();
+      return;
+    }
+    image.addEventListener("load", resolve, { once: true });
+    image.addEventListener("error", reject, { once: true });
+  });
+}
 const canvas = document.querySelector("#cardCanvas");
 const context = canvas.getContext("2d");
 const editorCanvas = document.querySelector("#editorCanvas");
@@ -304,7 +328,7 @@ const TEMPLATES = [
       return [
         createBackgroundLayer(),
         createTextLayer({
-          text: "灵不灵",
+          text: t("templateSampleName"),
           outline: { enabled: true, color: "#ffffff", width: 7.5 },
           ...defaultLayerOptions("name"),
         }),
@@ -316,10 +340,65 @@ const TEMPLATES = [
       ];
     },
   },
+  {
+    id: "navy",
+    nameKey: "templateNavy",
+    buildLayers() {
+      return [
+        createBackgroundLayer(generatedTemplateBackgrounds.navy),
+        createTextLayer({
+          text: t("templateSampleName"),
+          ...nameplateTextOptions({
+            x: 1181, y: 590, size: 440, font: BUILTIN_FONTS[5].family,
+            color: "#fff8e8", outline: { enabled: false, color: "#fff8e8", width: 0 },
+            shadow: { enabled: true, color: "#020914", opacity: 55, blur: 22, x: 10, y: 16 },
+          }),
+        }),
+      ];
+    },
+  },
+  {
+    id: "coral",
+    nameKey: "templateCoral",
+    buildLayers() {
+      return [
+        createBackgroundLayer(generatedTemplateBackgrounds.coral),
+        createTextLayer({
+          text: t("templateSampleName"),
+          ...nameplateTextOptions({
+            x: 1181, y: 590, size: 450, color: "#9f3440",
+            outline: { enabled: false, color: "#9f3440", width: 0 },
+            shadow: { enabled: false, color: "#9f3440", opacity: 0, blur: 0, x: 0, y: 0 },
+          }),
+        }),
+      ];
+    },
+  },
+  {
+    id: "forest",
+    nameKey: "templateForest",
+    buildLayers() {
+      return [
+        createBackgroundLayer(generatedTemplateBackgrounds.forest),
+        createTextLayer({
+          text: t("templateSampleName"),
+          ...nameplateTextOptions({
+            x: 1181, y: 590, size: 440, font: BUILTIN_FONTS[2].family,
+            color: "#1d3a2d", outline: { enabled: false, color: "#1d3a2d", width: 0 },
+            shadow: { enabled: false, color: "#061814", opacity: 0, blur: 0, x: 0, y: 0 },
+          }),
+        }),
+      ];
+    },
+  },
 ];
 // 默认应用第二个模板（经典）
 let currentTemplateId = TEMPLATES[1].id;
 const templateThumbnails = {};
+
+function clearTemplateThumbnails() {
+  Object.keys(templateThumbnails).forEach((key) => delete templateThumbnails[key]);
+}
 
 const templateStrip = document.querySelector("#templateStrip");
 
@@ -391,7 +470,13 @@ function reset(quiet = false) {
   if (!quiet) notify("resetDone");
 }
 
-function createBackgroundLayer() {
+function createTemplateImage(source) {
+  const image = new Image();
+  image.src = source;
+  return image;
+}
+
+function createBackgroundLayer(image = template) {
   return {
     id: `layer-${nextLayerId++}`,
     type: "image",
@@ -401,13 +486,30 @@ function createBackgroundLayer() {
     fillsCanvas: true, // 始终铺满画布：不参与拖拽缩放，忽略位置/宽度
     // 直接引用主模板图（load 之后才会建层，complete 恒为真），
     // 底图本身就是单面板，整图铺满——不裁剪出第二张异步图片，避免缩略图/画布竞态丢底图
-    image: template,
-    aspectRatio: TEMPLATE_WIDTH / TEMPLATE_HEIGHT,
+    image,
+    aspectRatio: image.naturalWidth / image.naturalHeight || TEMPLATE_WIDTH / TEMPLATE_HEIGHT,
     x: card.width / 2,
     y: panelHeight() / 2,
     width: card.width,
     opacity: 100,
     outline: { enabled: false, color: "#ffffff", width: 2 },
+  };
+}
+
+function nameplateTextOptions({
+  role = "name", x, y, size, font, color, outline, shadow,
+}) {
+  const ratioX = card.width / TEMPLATE_WIDTH;
+  const ratioY = panelHeight() / TEMPLATE_HEIGHT;
+  return {
+    role,
+    x: x * ratioX,
+    y: y * ratioY,
+    size: Math.round(size * ratioX),
+    font,
+    color,
+    outline,
+    shadow,
   };
 }
 
@@ -1389,7 +1491,7 @@ function applyCardSize(width, height) {
     clampLayer(layer);
   });
   // 卡片尺寸变了，缩略图按新比例重新生成
-  Object.keys(templateThumbnails).forEach((key) => delete templateThumbnails[key]);
+  clearTemplateThumbnails();
   if (threeD.inited) buildTent();
   updateSizePresetDisplay();
   render();
@@ -2276,11 +2378,17 @@ document.querySelector("#languageDropdownHost").append(languageDropdown.element)
 
 function setLocale(next) {
   if (!(next in translations)) return;
+  const previousSampleName = t("templateSampleName");
   currentLocale = next;
+  const nameLayer = getRoleLayer("name");
+  // Translate the built-in sample only. User-entered names must stay intact.
+  if (nameLayer?.text === previousSampleName) nameLayer.text = t("templateSampleName");
   try { localStorage.setItem("nameplate-lang", next); } catch (error) { /* 隐私模式等 */ }
   languageDropdown.setValue(next);
+  clearTemplateThumbnails();
   applyTranslations();
   updateBatchUi();
+  render();
 }
 
 function refreshDropdownLabels() {
@@ -2289,12 +2397,13 @@ function refreshDropdownLabels() {
   sizeDropdown.setAriaLabel(t("sizeLabel"));
 }
 
-template.addEventListener("load", () => {
+Promise.all([
+  waitForTemplateImage(template),
+  ...Object.values(generatedTemplateBackgrounds).map(waitForTemplateImage),
+]).then(() => {
   templateReady = true;
   reset(true);
-});
-
-template.addEventListener("error", () => notify("error", {}, "error"));
+}).catch(() => notify("error", {}, "error"));
 
 applyTranslations();
 updateBatchUi();
